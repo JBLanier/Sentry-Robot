@@ -66,9 +66,9 @@ class RobotNamespace(BaseNamespace):
         print('[SOCKET IO Disconnected]')
 
 print('STARTING SOCKET IO')
-socketIO = SocketIO('172.18.8.233', 80)
+socketIO = SocketIO('robot.local', 80)
+print('SOCKET IO Connected')
 robot = socketIO.define(RobotNamespace, '/robot')
-#robot.emit('fire',1)
 socketIO.wait(seconds=1)
 
 modelDir = os.path.join(fileDir, '..', '..', 'models')
@@ -108,14 +108,16 @@ class Face:
         )
 
 
-class OpenFaceServerProtocol(WebSocketServerProtocol):
 
+
+class OpenFaceServerProtocol(WebSocketServerProtocol):
+    sentry_target = None
+    
     def __init__(self):
         self.images = {}
         self.training = True
         self.people = []
         self.svm = None
-        self.sentry_target = None
         self.moving = False
         if args.unknown:
             self.unknownImgs = np.load("./examples/web/unknown.npy")
@@ -175,7 +177,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
     def newTarget(self, target):
         print("new target")
         robot.emit('search',1)
-        self.sentry_target = target
+        OpenFaceServerProtocol.sentry_target = target
 
     def loadState(self, jsImages, training, jsPeople):
         self.training = training
@@ -367,8 +369,13 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                 else:
                     name = self.people[identity]
 
-                    if (self.sentry_target != None and name == self.sentry_target):
-                        print ("FOUND " + self.sentry_target)
+                    if (OpenFaceServerProtocol.sentry_target != None):
+                        print("Current Target: " + OpenFaceServerProtocol.sentry_target)
+                    else:
+                        print("No Current Target")
+
+                    if (OpenFaceServerProtocol.sentry_target != None and name.upper() == OpenFaceServerProtocol.sentry_target.upper()):
+                        print ("FOUND " + OpenFaceServerProtocol.sentry_target)
                         center = bb.center()
                         row = center.x
                         column = center.y + ((bb.bottom() - bb.top())/2)
@@ -401,7 +408,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                 self.stop()
                 if (abs(diff[0]) < threshold and abs(diff[1]) < threshold):
                     robot.emit('fire',1)
-                    self.sentry_target = None
+                    OpenFaceServerProtocol.sentry_target = None
                     time.sleep(4)
                 else:
                     if (diff[0] > threshold):
@@ -414,7 +421,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                         up = amount
             
                     self.move(up,right)
-                    time.sleep(0.25)
+                    time.sleep(0.35)
                     self.stop()
 
 
